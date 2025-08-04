@@ -1,29 +1,52 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8"/>
-  <title>My n8n AI Agent</title>
+  <meta charset="utf-8"/>
+  <title>Chat with n8n</title>
+  <style>
+    body {font-family: sans-serif; margin: 2rem;}
+    #log {white-space: pre-wrap; border:1px solid #ccc; padding:1rem; height:200px; overflow:auto;}
+    form {margin-bottom:1rem;}
+  </style>
 </head>
 <body>
   <h1>Chat with n8n</h1>
-  <textarea id="in" rows="3" placeholder="Type your question…"></textarea><br/>
-  <button onclick="send()">Send</button>
-  <pre id="out" style="white-space: pre-wrap;"></pre>
+  <div id="log"></div>
+  <form id="chat">
+    <textarea id="msg" rows="3" style="width:100%" placeholder="Say something…"></textarea><br/>
+    <button type="submit">Send</button>
+  </form>
 
   <script>
-    async function send() {
-      const msg = document.getElementById('in').value;
-      const res = await fetch(
-        'https://doumani.app.n8n.cloud/webhook-test/52743fa3-c608-4f03-ba4e-c27bfe23e2a4',
-        {
+    const log = document.getElementById('log');
+    const form = document.getElementById('chat');
+    const msg  = document.getElementById('msg');
+
+    // <-- Replace with your Production Webhook URL:
+    const WEBHOOK_URL = 'https://doumani.app.n8n.cloud/webhook-test/52743fa3-c608-4f03-ba4e-c27bfe23e2a4';
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const text = msg.value.trim();
+      if (!text) return;
+      log.textContent += `You: ${text}\n`;
+      msg.value = ''; msg.disabled = true;
+
+      try {
+        const res = await fetch(WEBHOOK_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: msg })
-        }
-      );
-      const data = await res.json();
-      document.getElementById('out').innerText = data.reply || JSON.stringify(data, null, 2);
-    }
+          body: JSON.stringify({ message: text }),
+        });
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        log.textContent += `Bot: ${data.reply || JSON.stringify(data)}\n`;
+      } catch (err) {
+        log.textContent += `Error: ${err.message}\n`;
+      } finally {
+        msg.disabled = false; msg.focus();
+      }
+    });
   </script>
 </body>
 </html>
