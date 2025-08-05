@@ -2,95 +2,88 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Chat with n8n</title>
   <style>
-    body { font-family: sans-serif; margin: 20px; }
-    #chat { 
-      border: 1px solid #ccc; 
-      padding: 10px; 
-      height: 400px; 
-      overflow-y: auto; 
-      background: #f9f9f9;
-    }
-    .message { margin: 5px 0; }
-    .user { color: #0055cc; }
-    .bot  { color: #009933; }
-    .error{ color: #cc0000; }
-    #input { width: 100%; box-sizing: border-box; padding: 8px; }
-    #send  { margin-top: 8px; padding: 8px 16px; }
+    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; }
+    h1 { text-align: center; }
+    #log { border: 1px solid #ccc; padding: 16px; min-height: 300px; overflow-y: auto; }
+    #log .system  { color: #666; }
+    #log .user    { color: #00f; margin-top: 8px; }
+    #log .assistant { color: #080; margin-top: 8px; }
+    #input { width: 100%; box-sizing: border-box; padding: 8px; margin-top: 12px; }
+    #send  { margin-top: 8px; }
   </style>
 </head>
 <body>
 
   <h1>Chat with n8n</h1>
-  <div id="chat"></div>
-
-  <textarea id="input" rows="2" placeholder="Say something…"></textarea><br/>
+  <div id="log"></div>
+  <textarea id="input" placeholder="Say something…" rows="2"></textarea><br/>
   <button id="send">Send</button>
 
   <script>
-    // ← your n8n production webhook URL here:
-    const WEBHOOK_URL = 
-      'https://doumani.app.n8n.cloud/webhook/webhook-test/52743fa3-c608-4f03-ba4e-c27bfe23e2a4';
+    // ───────────────────────────────────────────────────────────
+    // 1) Point this at your production webhook URL:
+    const WEBHOOK_URL = 'https://doumani.app.n8n.cloud/webhook/webhook-test/52743fa3-c608-4f03-ba4e-c27bfe23e2a4';
+    // ───────────────────────────────────────────────────────────
 
-    const chatEl  = document.getElementById('chat');
+    // 2) Seed the conversation with your UAE-B2B Director system prompt:
+    const history = [
+      {
+        role: 'system',
+        content: `You are a GTM Director’s AI assistant specialized in the United Arab Emirates B2B market across all industries.
+Your job is to deliver a comprehensive go-to-market execution plan—covering segmentation, positioning, messaging, channel strategy, tagging, and continuous optimization—without requiring any initial data from the user.
+Always tailor your recommendations to UAE business customs, regulatory environment, and top B2B channels (e.g. LinkedIn, industry events, local partnerships).`
+      }
+    ];
+
+    const logEl   = document.getElementById('log');
     const inputEl = document.getElementById('input');
-    const sendBtn = document.getElementById('send');
 
-    function addMessage(who, text, cls) {
-      const div = document.createElement('div');
-      div.className = 'message ' + cls;
-      div.innerHTML = `<strong>${who}:</strong> ${text}`;
-      chatEl.appendChild(div);
-      chatEl.scrollTop = chatEl.scrollHeight;
+    // Render every message in the log
+    function render() {
+      logEl.innerHTML = '';
+      for (const msg of history) {
+        const div = document.createElement('div');
+        div.className = msg.role;
+        div.innerHTML = `<strong>${msg.role}:</strong> ${msg.content}`;
+        logEl.appendChild(div);
+      }
+      logEl.scrollTop = logEl.scrollHeight;
     }
 
-    async function sendMessage() {
-      const msg = inputEl.value.trim();
-      if (!msg) return;
-      addMessage('You', msg, 'user');
+    // Send user input to your n8n webhook & append the assistant’s reply
+    async function send() {
+      const text = inputEl.value.trim();
+      if (!text) return;
+      history.push({ role: 'user', content: text });
+      render();
       inputEl.value = '';
 
-      try {
-        const res = await fetch(WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: msg }),
-        });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        
-        // read raw text first (might be empty or non-JSON)
-        const text = await res.text();
-        let data = {};
-        if (text) {
-          try { data = JSON.parse(text); }
-          catch(e) {
-            // fallback: treat whole body as the reply
-            data = { reply: text };
-          }
-        }
-        
-        // pick a field to display
-        const reply = data.reply 
-                    || data.message 
-                    || JSON.stringify(data);
-        addMessage('Bot', reply, 'bot');
+      // POST entire history as JSON
+      const resp = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ history })
+      });
 
-      } catch (err) {
-        addMessage('Error', err.message, 'error');
+      // parse JSON array of { reply: "...", ... }
+      const data = await resp.json();
+
+      // handle each returned item
+      for (const item of data) {
+        // pick the right field
+        const content = item.reply ?? item.message ?? JSON.stringify(item);
+        history.push({ role: 'assistant', content });
       }
+      render();
     }
 
-    sendBtn.addEventListener('click', sendMessage);
+    document.getElementById('send').addEventListener('click', send);
 
-    // allow Enter (without Shift) to submit
-    inputEl.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
+    // render initial system prompt
+    render();
   </script>
 
 </body>
