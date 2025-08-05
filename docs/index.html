@@ -1,95 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Chat with n8n</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 2rem;
-      max-width: 600px;
-      margin: auto;
+    body { font-family: sans-serif; margin: 20px; }
+    #chat { 
+      border: 1px solid #ccc; 
+      padding: 10px; 
+      height: 400px; 
+      overflow-y: auto; 
+      background: #f9f9f9;
     }
-    #chat {
-      border: 1px solid #ccc;
-      padding: 1rem;
-      height: 300px;
-      overflow-y: auto;
-      margin-bottom: 0.5rem;
-      background: #fafafa;
-    }
-    #chat p {
-      margin: 0.5rem 0;
-    }
-    #chat strong {
-      display: inline-block;
-      width: 60px;
-    }
-    #input {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 0.5rem;
-      font-size: 1rem;
-    }
-    #send {
-      margin-top: 0.5rem;
-      padding: 0.5rem 1rem;
-      font-size: 1rem;
-    }
-    .you { color: blue; }
-    .bot { color: green; }
-    .error { color: red; }
+    .message { margin: 5px 0; }
+    .user { color: #0055cc; }
+    .bot  { color: #009933; }
+    .error{ color: #cc0000; }
+    #input { width: 100%; box-sizing: border-box; padding: 8px; }
+    #send  { margin-top: 8px; padding: 8px 16px; }
   </style>
 </head>
 <body>
+
   <h1>Chat with n8n</h1>
   <div id="chat"></div>
-  <textarea id="input" rows="3" placeholder="Say something…"></textarea><br>
+
+  <textarea id="input" rows="2" placeholder="Say something…"></textarea><br/>
   <button id="send">Send</button>
 
   <script>
-    const chatEl = document.getElementById('chat');
+    // ← your n8n production webhook URL here:
+    const WEBHOOK_URL = 
+      'https://doumani.app.n8n.cloud/webhook/webhook-test/52743fa3-c608-4f03-ba4e-c27bfe23e2a4';
+
+    const chatEl  = document.getElementById('chat');
     const inputEl = document.getElementById('input');
     const sendBtn = document.getElementById('send');
 
-    // ← your n8n production webhook URL
-    const WEBHOOK_URL = 'https://doumani.app.n8n.cloud/webhook/webhook-test/52743fa3-c608-4f03-ba4e-c27bfe23e2a4';
-
-    function addMessage(who, text, cssClass) {
-      const p = document.createElement('p');
-      p.className = cssClass;
-      p.innerHTML = `<strong>${who}:</strong> ${text}`;
-      chatEl.appendChild(p);
+    function addMessage(who, text, cls) {
+      const div = document.createElement('div');
+      div.className = 'message ' + cls;
+      div.innerHTML = `<strong>${who}:</strong> ${text}`;
+      chatEl.appendChild(div);
       chatEl.scrollTop = chatEl.scrollHeight;
     }
 
-    sendBtn.addEventListener('click', async () => {
-      const message = inputEl.value.trim();
-      if (!message) return;
-      addMessage('You', message, 'you');
+    async function sendMessage() {
+      const msg = inputEl.value.trim();
+      if (!msg) return;
+      addMessage('You', msg, 'user');
       inputEl.value = '';
+
       try {
         const res = await fetch(WEBHOOK_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message })
+          body: JSON.stringify({ message: msg }),
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        // adjust this if your webhook returns a different field name
-        const reply = data.reply ?? JSON.stringify(data);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        
+        // read raw text first (might be empty or non-JSON)
+        const text = await res.text();
+        let data = {};
+        if (text) {
+          try { data = JSON.parse(text); }
+          catch(e) {
+            // fallback: treat whole body as the reply
+            data = { reply: text };
+          }
+        }
+        
+        // pick a field to display
+        const reply = data.reply 
+                    || data.message 
+                    || JSON.stringify(data);
         addMessage('Bot', reply, 'bot');
+
       } catch (err) {
         addMessage('Error', err.message, 'error');
       }
-    });
+    }
 
-    // allow pressing Enter+Ctrl/Cmd to send
+    sendBtn.addEventListener('click', sendMessage);
+
+    // allow Enter (without Shift) to submit
     inputEl.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-        sendBtn.click();
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
       }
     });
   </script>
+
 </body>
 </html>
