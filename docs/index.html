@@ -1,97 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>GTM Director AI Assistant (UAE B2B)</title>
+  <meta charset="UTF-8">
+  <title>e& B2B GTM Director AI Assistant (UAE)</title>
   <style>
-    body { font-family: sans-serif; max-width: 700px; margin: 30px auto; }
-    #log { border: 1px solid #ddd; height: 400px; overflow-y: auto; padding: 15px; }
+    body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+    h2 { text-align: center; }
+    #log { border: 1px solid #ccc; padding: 15px; height: 500px; overflow-y: auto; }
     .system { color: grey; }
     .user { color: blue; margin-top: 10px; }
-    .assistant { color: green; margin-top: 10px; }
-    textarea { width: 100%; height: 60px; margin-top: 10px; padding: 10px; box-sizing: border-box; }
-    button { padding: 8px 16px; }
+    .assistant { color: green; white-space: pre-wrap; margin-top: 10px; }
+    textarea { width: 100%; padding: 10px; margin-top: 10px; }
+    button { margin-top: 10px; padding: 8px 16px; }
   </style>
 </head>
 <body>
-
   <h2>e& B2B GTM Director AI Assistant (UAE)</h2>
 
   <div id="log"></div>
-
-  <textarea id="input" placeholder="Say something…"></textarea><br/>
+  <textarea id="input" placeholder="Ask a GTM-related question..."></textarea>
   <button id="send">Send</button>
 
 <script>
-const webhookURL = 'https://doumani.app.n8n.cloud/webhook/webhook-test/52743fa3-c608-4f03-ba4e-c27bfe23e2a4';
+  const webhookURL = 'https://doumani.app.n8n.cloud/webhook/webhook-test/52743fa3-c608-4f03-ba4e-c27bfe23e2a4';
 
-let history = [
-  {
+  const history = [{
     role: 'system',
-    content: `You are an AI assistant specifically designed for the Director of Go-To-Market (GTM) strategy at e& in the UAE B2B sector. 
-GTM ALWAYS means "Go-To-Market" and NEVER "Google Tag Manager". Provide clear strategic recommendations and actionable steps.`
+    content: `You are a GTM Director’s AI assistant specialized in the UAE B2B market at e&.
+"GTM" means Go-To-Market. Provide clear recommendations and actionable steps tailored specifically to UAE's B2B market.`
+  }];
+
+  const logEl = document.getElementById('log');
+  const inputEl = document.getElementById('input');
+
+  function render() {
+    logEl.innerHTML = history.map(msg => 
+      `<div class="${msg.role}"><strong>${msg.role}:</strong> ${msg.content}</div>`
+    ).join('');
+    logEl.scrollTop = logEl.scrollHeight;
   }
-];
 
-const log = document.getElementById('log');
-const input = document.getElementById('input');
+  function formatAssistantResponse(data) {
+    let formatted = '';
 
-function render() {
-  log.innerHTML = '';
-  history.forEach(msg => {
-    let div = document.createElement('div');
-    div.className = msg.role;
-    div.innerHTML = `<strong>${msg.role}:</strong> ${msg.content}`;
-    log.appendChild(div);
-  });
-  log.scrollTop = log.scrollHeight;
-}
+    if (Array.isArray(data) && data.length > 0 && data[0].reply) {
+      const reply = data[0].reply;
 
-async function send() {
-  const message = input.value.trim();
-  if (!message) return;
-
-  history.push({ role: 'user', content: message });
-  render();
-  input.value = '';
-
-  const res = await fetch(webhookURL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message })
-  });
-
-  const data = await res.json();
-
-  let assistantMsg = '';
-  
-  // Correctly handle the object returned from n8n webhook
-  if (Array.isArray(data) && data.length > 0) {
-    data.forEach(item => {
-      if (item.reply) {
-        // If reply is an object, stringify neatly
-        if (typeof item.reply === 'object') {
-          assistantMsg += JSON.stringify(item.reply, null, 2);
-        } else {
-          assistantMsg += item.reply;
+      if (reply.recommendation) {
+        formatted += `✅ Recommendation:\n${reply.recommendation}\n`;
+        if (reply.next_steps) {
+          formatted += `\n📌 Next Steps:\n`;
+          reply.next_steps.forEach((step, index) => formatted += `${index + 1}. ${step}\n`);
         }
-      } else if (item.message) {
-        assistantMsg += item.message;
-      } else {
-        assistantMsg += JSON.stringify(item);
+      } 
+      else if (reply.action_plan) {
+        formatted += `🚀 Action Plan:\n`;
+        Object.entries(reply.action_plan).forEach(([key, value]) => {
+          formatted += `${key}: ${value}\n`;
+        });
+      } 
+      else if (reply.message) {
+        formatted += reply.message;
       }
-    });
-  } else {
-    assistantMsg = "Sorry, I couldn't process that clearly. Please try again.";
+      else if (typeof reply === 'object') {
+        formatted += JSON.stringify(reply, null, 2);
+      } 
+      else {
+        formatted += reply;
+      }
+    } else {
+      formatted = "Sorry, I didn't clearly understand the response.";
+    }
+
+    return formatted;
   }
 
-  history.push({ role: 'assistant', content: assistantMsg });
+  async function send() {
+    const message = inputEl.value.trim();
+    if (!message) return;
+
+    history.push({ role: 'user', content: message });
+    render();
+    inputEl.value = '';
+
+    try {
+      const res = await fetch(webhookURL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+
+      const data = await res.json();
+
+      const assistantMessage = formatAssistantResponse(data);
+      history.push({ role: 'assistant', content: assistantMessage });
+      render();
+
+    } catch (error) {
+      history.push({ role: 'assistant', content: `⚠️ Error fetching response: ${error.message}` });
+      render();
+    }
+  }
+
+  document.getElementById('send').onclick = send;
+  inputEl.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  });
+
   render();
-}
-
-document.getElementById('send').onclick = send;
-render();
 </script>
-
 </body>
 </html>
