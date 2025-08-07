@@ -1,44 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GTM AI Assistant (e& UAE)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #f4f4f9;
+        }
+        textarea, button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            box-sizing: border-box;
+        }
+        #response {
+            background-color: white;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+
+<h2>GTM AI Assistant (e& UAE)</h2>
+
+<textarea id="user-input" placeholder="Ask a GTM-related question..."></textarea>
+<button onclick="callAgent()">Submit</button>
+
+<div id="response"></div>
+
 <script>
-async function callAgent() {
-    const input = document.getElementById('user-input').value;
+    async function callAgent() {
+        const input = document.getElementById('user-input').value;
 
-    const response = await fetch('YOUR_N8N_WEBHOOK_URL', { // Replace with your actual webhook URL
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: input }),
-    });
+        const response = await fetch('https://doumani.app.n8n.cloud/webhook-test/webhook-test/52743fa3-c608-4f03-ba4e-c27bfe23e2a4', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({body: {message: input}}),
+        });
 
-    const data = await response.json();
+        const data = await response.json();
 
-    // Clearly access your structured JSON response here:
-    document.getElementById('response').innerHTML = `
-        <strong>✅ Recommendation:</strong><br>${data.recommendation}<br><br>
+        document.getElementById('response').innerHTML = `
+            <strong>✅ Recommendation:</strong><br>${data.recommendation || 'No recommendation provided'}<br><br>
 
-        <strong>🚀 Next Steps:</strong>
-        <ol>
-            ${data.next_steps.map(step => `<li>${step}</li>`).join('')}
-        </ol>
+            <strong>🚀 Next Steps:</strong>
+            <ol>
+                ${(data.next_steps || []).map(step => `<li>${step}</li>`).join('')}
+            </ol>
 
-        <strong>📝 Action Plan:</strong>
-        <ul>
-            <li><strong>Week 1:</strong> ${data.action_plan.week_1}</li>
-            <li><strong>Week 2:</strong> ${data.action_plan.week_2}</li>
-            <li><strong>Week 3:</strong> ${data.action_plan.week_3}</li>
-        </ul>
+            <strong>📝 Action Plan:</strong>
+            <ul>
+                <li><strong>Week 1:</strong> ${data.action_plan?.week_1 || 'N/A'}</li>
+                <li><strong>Week 2:</strong> ${data.action_plan?.week_2 || 'N/A'}</li>
+                <li><strong>Week 3:</strong> ${data.action_plan?.week_3 || 'N/A'}</li>
+            </ul>
 
-        <strong>📦 Related Products/Services:</strong>
-        <ul>
-            ${data.related_products_services.map(item => `<li>${item}</li>`).join('')}
-        </ul>
+            <strong>📦 Related Products/Services:</strong>
+            <ul>
+                ${(data.related_products_services || []).map(item => `<li>${item}</li>`).join('')}
+            </ul>
 
-        <strong>🏢 Targeted Sectors:</strong>
-        <ul>
-            ${data.sectors_targeted.map(sector => `<li>${sector}</li>`).join('')}
-        </ul>
+            <strong>🏢 Targeted Sectors:</strong>
+            <ul>
+                ${(data.sectors_targeted || []).map(sector => `<li>${sector}</li>`).join('')}
+            </ul>
 
-        <strong>📈 Expected ROI:</strong><br>${data.expected_ROI}
-    `;
-}
+            <strong>📈 Expected ROI:</strong><br>${data.expected_ROI || 'N/A'}
+        `;
+    }
 </script>
+
+</body>
+</html>
+
