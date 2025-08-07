@@ -2,121 +2,133 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>e& B2B GTM Director AI Assistant (UAE)</title>
+  <title>e&amp; B2B GTM Director AI Assistant (UAE)</title>
   <style>
-    body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-    h2 { text-align: center; }
-    #log { border: 1px solid #ccc; padding: 15px; height: 500px; overflow-y: auto; }
+    body {
+      font-family: sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      text-align: center;
+      background-color: #f7f9fc;
+    }
+
+    #log {
+      border: 1px solid #ccc;
+      padding: 15px;
+      height: 500px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+      background-color: #ffffff;
+    }
+
     .system { color: grey; }
     .user { color: blue; margin-top: 10px; }
     .assistant { color: green; white-space: pre-wrap; margin-top: 10px; }
-    textarea { width: 100%; padding: 10px; margin-top: 10px; }
-    button { margin-top: 10px; padding: 8px 16px; }
+
+    textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 8px 16px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
-  <h2>e& B2B GTM Director AI Assistant (UAE)</h2>
 
-  <div id="log"></div>
-  <textarea id="input" placeholder="Ask a GTM-related question..."></textarea>
-  <button id="send">Send</button>
+<h2>e&amp; B2B GTM Director AI Assistant (UAE)</h2>
 
-  <script>
-    const webhookURL = 'https://doumani.app.n8n.cloud/webhook/webhook-test/52743fa3-c608-4f03-ba4e-c27bfe23e2a4';
+<div id="log"></div>
+<textarea id="input" placeholder="Ask a GTM-related question..."></textarea>
+<button id="send">Send</button>
 
-    const history = [{
-      role: 'system',
-      content: `You are a GTM Director’s AI assistant specialized in the UAE B2B market at e&. "GTM" means Go-To-Market. Provide clear recommendations and actionable steps tailored specifically to UAE's B2B market.`
-    }];
+<script>
+  const webhookURL = 'https://doumani.app.n8n.cloud/webhook/webhook-test/52743fa3-c608-4f03-ba4e-c27bfe23e2a4';
 
-    const logEl = document.getElementById('log');
-    const inputEl = document.getElementById('input');
+  const history = [{
+    role: 'system',
+    content: `You are a GTM Director’s AI assistant specialized in the UAE B2B market at e&. "GTM" means Go-To-Market. Provide clear recommendations and actionable steps tailored specifically to UAE's B2B market.`
+  }];
 
-    function render() {
-      logEl.innerHTML = history.map(msg =>
-        `<div class="${msg.role}"><strong>${msg.role}:</strong> ${msg.content}</div>`
-      ).join('');
-      logEl.scrollTop = logEl.scrollHeight;
+  const logEl = document.getElementById('log');
+  const inputEl = document.getElementById('input');
+
+  function render() {
+    logEl.innerHTML = history.map(msg =>
+      `<div class="${msg.role}"><strong>${msg.role}:</strong> ${msg.content}</div>`
+    ).join('');
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function formatAssistantResponse(data) {
+    let formatted = '';
+
+    if (Array.isArray(data) && data.length > 0 && data[0].reply) {
+      const reply = data[0].reply;
+
+      if (reply.recommendation) {
+        formatted += `✅ Recommendation:\n${reply.recommendation}\n`;
+        if (reply.next_steps) {
+          formatted += `\n🚀 Next Steps:\n`;
+          reply.next_steps.forEach((step, index) => formatted += `${index + 1}. ${step}\n`);
+        }
+        if (reply.action_plan) {
+          formatted += `\n📝 Action Plan:\n`;
+          Object.entries(reply.action_plan).forEach(([key, value]) => formatted += `- ${key}: ${value}\n`);
+        }
+      } else if (reply.message) {
+        formatted += reply.message;
+      } else {
+        formatted = JSON.stringify(reply, null, 2);
+      }
+    } else {
+      formatted = "Sorry, I didn't clearly understand the response.";
     }
 
-    async function send() {
-      const message = inputEl.value.trim();
-      if (!message) return;
+    return formatted;
+  }
 
-      history.push({ role: 'user', content: message });
-      render();
-      inputEl.value = '';
+  async function send() {
+    const message = inputEl.value.trim();
+    if (!message) return;
 
-      try {
-        const res = await fetch(webhookURL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message })
-        });
-
-        const data = await res.json();
-
-        // Corrected flexible response parsing
-        const assistantMessage = formatAssistantResponse(data);
-
-        history.push({ role: 'assistant', content: assistantMessage });
-        render();
-
-      } catch (error) {
-        history.push({ role: 'assistant', content: `⚠️ Error fetching response: ${error.message}` });
-        render();
-      }
-    }
-
-    // ✅ Corrected and Flexible Function
-    function formatAssistantResponse(data) {
-      let replyContent = data.reply || (data[0] && data[0].reply);
-
-      if (!replyContent) return "⚠️ No clear response from the assistant.";
-
-      let formatted = '';
-
-      if (replyContent.recommendation) {
-        formatted += `✅ Recommendation:\n${replyContent.recommendation}\n\n`;
-      }
-
-      if (replyContent.next_steps) {
-        formatted += `🚀 Next Steps:\n`;
-        replyContent.next_steps.forEach((step, idx) => {
-          formatted += `${idx + 1}. ${step}\n`;
-        });
-        formatted += '\n';
-      }
-
-      if (replyContent.action_plan) {
-        formatted += `📝 Action Plan:\n`;
-        Object.entries(replyContent.action_plan).forEach(([key, val]) => {
-          formatted += `- ${key}: ${val}\n`;
-        });
-        formatted += '\n';
-      }
-
-      if (replyContent.message) {
-        formatted += `${replyContent.message}`;
-      }
-
-      if (formatted === '') {
-        formatted = JSON.stringify(replyContent, null, 2);
-      }
-
-      return formatted;
-    }
-
-    document.getElementById('send').onclick = send;
-    inputEl.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        send();
-      }
-    });
-
+    history.push({ role: 'user', content: message });
     render();
-  </script>
+    inputEl.value = '';
+
+    try {
+      const res = await fetch(webhookURL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: message })
+      });
+
+      const data = await res.json();
+      const assistantMessage = formatAssistantResponse(data);
+      history.push({ role: 'assistant', content: assistantMessage });
+      render();
+
+    } catch (error) {
+      history.push({ role: 'assistant', content: `⚠️ Error: ${error.message}` });
+      render();
+    }
+  }
+
+  document.getElementById('send').onclick = send;
+  inputEl.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  });
+
+  render();
+</script>
+
 </body>
 </html>
-
